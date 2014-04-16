@@ -1,16 +1,17 @@
 #!/usr/bin/env python
-import sys
-import json
+import sys, json, random
+import common_words
 
 PUNCTUATION = ''.join([chr(x) for x in xrange(ord('!'), ord('@')+1)])
+
 
 def string_to_word_set(raw_string):
     """Get the set of words used in raw_string"""
     words = set()
     for word in raw_string.split():
-        # remove any punctuation
+        # remove any punctuation or definitely unsexy words
         word = word.translate(None, PUNCTUATION)
-        if len(word) == 0:
+        if len(word) == 0 or word in common_words.WORDS:
             continue
         words.add(word)
     return words
@@ -62,10 +63,27 @@ def tfln_json_to_word_usage(json_file):
         tfln_list.append(filtered_string)
     return strings_to_word_sets(tfln_list)
 
+def print_line(line, value, num_words, f):
+    num_written = 0
+    next_idx = 0
+    for active_idx in line:
+        # print 0's for unused space
+        f.write("0," * (active_idx - next_idx))
+        # print a 1 for this space
+        f.write("1,")
+        next_idx = active_idx + 1
+        num_written += (active_idx - next_idx) + 1
+    # fill in the remaining 0's
+    f.write("0," * (num_words - next_idx))
+    # write the value
+    f.write(value + "\n")
+
+
 if __name__=='__main__':
-    if len(sys.argv) != 4:
+    if len(sys.argv) != 6:
         print "usage:", sys.argv[0], \
-            '<twss-json-file> <tfln-json-file> <output-csv-file>'
+            '<twss-json-file> <tfln-json-file> <word-order-csv-file> ' \
+            '<training-data-csv-file> <test-data-csv-file>'
         exit(-1)
     all_twss_words, twss_word_sets = twss_json_to_word_usage(sys.argv[1])
     all_tfln_words, tfln_word_sets = tfln_json_to_word_usage(sys.argv[2])
@@ -83,32 +101,36 @@ if __name__=='__main__':
         sorted([word_idx_lookup[word] for word in word_set])
         for word_set in tfln_word_sets]
 
+    # write the word order
     with open(sys.argv[3], "w") as f:
-        def print_line(line, value):
-            num_written = 0
-            next_idx = 0
-            for active_idx in line:
-                # print 0's for unused space
-                f.write("0," * (active_idx - next_idx))
-                # print a 1 for this space
-                f.write("1,")
-                next_idx = active_idx + 1
-                num_written += (active_idx - next_idx) + 1
-            # fill in the remaining 0's
-            f.write("0," * (len(ordered_words) - next_idx))
-            # write the value
-            f.write(value + "\n")
-
-        # print the title line
         for word in ordered_words:
             f.write("'" + word + "',")
-        f.write("'IS_TWSS'\n")
-        # print the TWSS's
-        for line in twss_word_usages:
-            print_line(line, "1")
 
-        # print the TFLN's
-        for line in tfln_word_usages:
-            print_line(line, "0")
+    # split data into training and testing
+    random.seed(0)
+    training_usages = []
+    testing_usages = []
+    for usage in twss_word_usages:
+        if random.random() < 0.7:
+            training_usages.append((usage, '1'))
+        else:
+            testing_usages.append((usage, '1'))
+    for usage in tfln_word_usages:
+        if random.random() < 0.7:
+            training_usages.append((usage, '0'))
+        else:
+            testing_usages.append((usage, '0'))
+
+    num_words = len(ordered_words)
+    # write the training data
+    with open(sys.argv[4], "w") as f:
+        for usage in training_usages:
+            words, result = usage
+            print_line(words, result, num_words, f)
+    # write the testing data
+    with open(sys.argv[5], "w") as f:
+        for usage in testing_usages:
+            words, result = usage
+            print_line(words, result, num_words, f)
 
 
