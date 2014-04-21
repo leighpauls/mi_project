@@ -4,17 +4,16 @@ import common_words
 
 PUNCTUATION = ''.join([chr(x) for x in xrange(ord('!'), ord('@')+1)])
 
-
-def string_to_word_set(raw_string):
-    """Get the set of words used in raw_string"""
-    words = set()
-    for word in raw_string.split():
-        # remove any punctuation or definitely unsexy words
-        word = word.translate(None, PUNCTUATION)
-        if len(word) == 0 or word in common_words.WORDS:
-            continue
-        words.add(word)
-    return words
+class WordSet:
+    def __init__(self, text):
+        self.text = text
+        self.words = set()
+        for word in text.split():
+            # remove any punctuation or definitely unsexy words
+            word = word.translate(None, PUNCTUATION)
+            if len(word) == 0 or word in common_words.WORDS:
+                continue
+            self.words.add(word)
 
 def strings_to_word_sets(strings):
     """Get the all of the words used in the strings
@@ -22,8 +21,8 @@ def strings_to_word_sets(strings):
     word_set = set()
     line_word_sets = []
     for string in strings:
-        line_word_set = string_to_word_set(string)
-        word_set.update(line_word_set)
+        line_word_set = WordSet(string)
+        word_set.update(line_word_set.words)
         line_word_sets.append(line_word_set)
     return (word_set, line_word_sets)
 
